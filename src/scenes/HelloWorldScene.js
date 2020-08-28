@@ -30,6 +30,10 @@ export default class HelloWorldScene extends Phaser.Scene
         this.add.sprite(600, 400, 'intro').play('everything');
         */
 
+       this.rt = this.add.renderTexture(0, 0, 1200, 800);
+       this.currentFrame=0;
+       this.elapsedTime=0;
+       this.renderDelay=30;
 
        //parse the name of all the texture frames in the texture atlas
        this.spriteNames=[];
@@ -73,13 +77,14 @@ export default class HelloWorldScene extends Phaser.Scene
                     for (let innerIndex = 0; innerIndex< frame.elements.length; innerIndex++) {
                             const innerElement = frame.elements[innerIndex];
                             if(innerElement.ATLAS_SPRITE_instance!==undefined){
-                                //console.log("Is Sprite");
+                                //console.log("Is Sprite "+innerElement.ATLAS_SPRITE_instance.name);
                                 symbolLayers.push(new SpriteData(innerElement.ATLAS_SPRITE_instance.name,
                                     innerElement.ATLAS_SPRITE_instance.DecomposedMatrix.Position,innerElement.ATLAS_SPRITE_instance.DecomposedMatrix.Rotation,
                                     innerElement.ATLAS_SPRITE_instance.DecomposedMatrix.Scaling,innerElement.ATLAS_SPRITE_instance.Matrix3D));
                             }else if(innerElement.SYMBOL_Instance!==undefined){
-                                //console.log("Is Symbol");
+                            
                                 let item=innerElement.SYMBOL_Instance;
+                                //console.log("Is Symbol "+item.SYMBOL_name);
                                 if(Object.keys(item).length>7||Object.keys(item).length<7){
                                     console.error("Symbol has irregula parameters for "+element.SYMBOL_name+" layer "+element.TIMELINE.LAYERS[0].Layer_name);
                                 }
@@ -111,9 +116,11 @@ export default class HelloWorldScene extends Phaser.Scene
                        if(frame.SYMBOL_Instance===undefined){
                            console.error("Animation Symbol Instance undefined for "+element.Layer_name);
                        }else{
+
                             let item=frame.SYMBOL_Instance;
                             items.push(new SymbolData(item.SYMBOL_name,item.DecomposedMatrix.Position,item.DecomposedMatrix.Rotation,
                                 item.DecomposedMatrix.Scaling,item.Matrix3D,item.transformationPoint,item.color));
+                                
                        }
                        
                    }
@@ -123,13 +130,10 @@ export default class HelloWorldScene extends Phaser.Scene
            }
            this.keyFrameLayers.push(keyFrameLayer);
        }
-
-       this.constructFrame(0);
-
     }
 
     constructFrame(whichFrame) {
-        let container=this.add.container(300,300);
+        let container=this.add.container(300,300).setVisible(false);
         for (let index = this.keyFrameLayers.length-1; index >=0; index--) {
             const layer = this.keyFrameLayers[index];
             console.log("Layer "+index);
@@ -143,24 +147,25 @@ export default class HelloWorldScene extends Phaser.Scene
             console.log("_____________");
         }
         container.scale=3;
+        return container;
     }
     drawKeyFrame(container,clips){
         for (let index = clips.length-1; index >=0; index--) {
             const symbolData = clips[index];
+            let innerContainer=this.add.container(0,0);
             let innerSymbols=this.symbolMap.get(symbolData.name)
+            
             if(innerSymbols!==null&&innerSymbols.length!==0){
                 for (let innerIndex = 0; innerIndex < innerSymbols.length; innerIndex++) {
                     const symbol = innerSymbols[innerIndex];
+                   
                     if(symbol instanceof SpriteData){
-                        let xPos=symbolData.position.x+symbol.position.x-symbolData.transformationPoint.x;
-                        let yPos=symbolData.position.y+symbol.position.y-symbolData.transformationPoint.y;
-                        let totalRotation=symbolData.rotation.z+symbol.rotation.z;
-                        let spr=this.add.sprite(xPos,yPos,'char_img',symbol.name);
-                        //spr.rotation=symbol.rotation;
-                        spr.setRotation(totalRotation);
-                        spr.scaleX=symbolData.scale.x*symbol.scale.x;
-                        spr.scaleY=symbolData.scale.y*symbol.scale.y;
-                        container.add(spr);
+                        let spr=this.add.sprite(symbol.position.x,symbol.position.y,'char_img',symbol.name);
+                        spr.setRotation(symbol.rotation.z);
+                        spr.scaleX=symbol.scale.x;
+                        spr.scaleY=symbol.scale.y;
+                        spr.setOrigin(0,0);
+                        innerContainer.add(spr);
                     }else if(symbol instanceof SymbolData){
                         console.log("is symbol");
                     }else{
@@ -170,7 +175,30 @@ export default class HelloWorldScene extends Phaser.Scene
             }else{
                 console.log("Cannot get "+symbolData.name);
             }
+            innerContainer.x=symbolData.position.x;//-symbolData.transformationPoint.x;
+            innerContainer.y=symbolData.position.y;//-symbolData.transformationPoint.y;
+            if(symbolData.transformationPoint.x!==0&&symbolData.transformationPoint.y!==0){
+                console.log("trfmPt ",symbolData.transformationPoint.x,symbolData.transformationPoint.y);
+            }
+            innerContainer.setRotation(symbolData.rotation.z);
+            innerContainer.scaleX=symbolData.scale.x;
+            innerContainer.scaleY=symbolData.scale.y;
+            container.add(innerContainer);
         }
         console.log("********************");
+    }
+    update (timestep, dt){
+        this.elapsedTime+=dt;
+        if(this.elapsedTime>this.renderDelay){
+            this.rt.clear();
+            let container=this.constructFrame(this.currentFrame);
+            this.currentFrame++;
+            if(this.currentFrame>=1040){
+                this.currentFrame=0;
+            }
+            this.rt.draw(container);
+            container.destroy();
+            this.elapsedTime=0;
+        }
     }
 }
